@@ -1,3 +1,24 @@
+// Компонент task-column
+Vue.component('task-column', {
+    props: ['column', 'index', 'columnsLength'],
+    template: `
+        <div class="kanban-column">
+            <h2>{{ column.title }}</h2>
+            <task-card
+                v-for="(task, taskIndex) in column.tasks"
+                :key="taskIndex"
+                :task="task"
+                :colIndex="index"
+                :columnsLength="columnsLength"
+                @delete-task="$emit('delete-task', task, index)"
+                @move-task="$emit('move-task', $event.task, $event.fromColumn, $event.toColumn)"
+                @update-storage="$emit('update-storage')"
+            ></task-card>
+        </div>
+    `
+});
+
+// Компонент task-card
 Vue.component('task-card', {
     props: ['task', 'colIndex', 'columnsLength'],
     data() {
@@ -27,7 +48,7 @@ Vue.component('task-card', {
         },
         moveTask(direction) {
             const toColumn = direction === 'left' ? this.colIndex - 1 : this.colIndex + 1;
-            this.$emit('move-task', this.task, this.colIndex, toColumn);
+            this.$emit('move-task', { task: this.task, fromColumn: this.colIndex, toColumn });
         }
     },
     template: `
@@ -54,6 +75,7 @@ Vue.component('task-card', {
     `
 });
 
+// Основное приложение
 new Vue({
     el: '#app',
     data() {
@@ -104,19 +126,16 @@ new Vue({
             </div>
 
             <div class="kanban-board">
-                <div v-for="(column, colIndex) in columns" :key="colIndex" class="kanban-column">
-                    <h2>{{ column.title }}</h2>
-                    <task-card
-                        v-for="(task, taskIndex) in column.tasks"
-                        :key="taskIndex"
-                        :task="task"
-                        :colIndex="colIndex"
-                        :columnsLength="columns.length"
-                        @delete-task="deleteTask"
-                        @move-task="moveTask"
-                        @update-storage="saveToLocalStorage"
-                    ></task-card>
-                </div>
+                <task-column
+                    v-for="(column, colIndex) in columns"
+                    :key="colIndex"
+                    :column="column"
+                    :index="colIndex"
+                    :columnsLength="columns.length"
+                    @delete-task="deleteTask"
+                    @move-task="moveTask"
+                    @update-storage="saveToLocalStorage"
+                ></task-column>
             </div>
         </div>
     `
