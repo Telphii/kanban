@@ -43,3 +43,60 @@ body {
     cursor: pointer;
     font-weight: bold;
 }
+
+.task-form button:hover {
+    background: #4500b5;
+}
+
+.board {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    max-width: 1200px;
+}
+
+.column {
+    flex: 1;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+h3 {
+    text-align: center;
+    background: #6200ea;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.task {
+    background: #e3e3e3;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+button {
+    background: #6200ea;
+    color: white;
+    border: none;
+    padding: 8px;
+    margin-top: 5px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+button:hover {
+    background: #4500b5;
+}
+
+.completed {
+    background: #c8e6c9;
+}
+
+.overdue {
+    background: #b73149;
+}
