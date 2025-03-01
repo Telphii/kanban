@@ -1,24 +1,3 @@
-// Компонент task-column
-Vue.component('task-column', {
-    props: ['column', 'index', 'columnsLength'],
-    template: `
-        <div class="kanban-column">
-            <h2>{{ column.title }}</h2>
-            <task-card
-                v-for="(task, taskIndex) in column.tasks"
-                :key="taskIndex"
-                :task="task"
-                :colIndex="index"
-                :columnsLength="columnsLength"
-                @delete-task="$emit('delete-task', task, index)"
-                @move-task="$emit('move-task', $event.task, $event.fromColumn, $event.toColumn)"
-                @update-storage="$emit('update-storage')"
-            ></task-card>
-        </div>
-    `
-});
-
-// Компонент task-card
 Vue.component('task-card', {
     props: ['task', 'colIndex', 'columnsLength'],
     data() {
@@ -27,6 +6,16 @@ Vue.component('task-card', {
             editedTask: { title: '', description: '', deadline: '' },
             returnReason: '',
         };
+    },
+    computed: {
+        taskStatus() {
+            if (this.colIndex === this.columnsLength - 1) {
+                const deadlineDate = new Date(this.task.deadline);
+                const now = new Date();
+                return deadlineDate >= now ? 'completed' : 'overdue';
+            }
+            return '';
+        }
     },
     methods: {
         toggleEdit() {
@@ -43,39 +32,73 @@ Vue.component('task-card', {
             this.isEditing = false;
             this.$emit('update-storage');
         },
-        deleteTask() {
-            this.$emit('delete-task', this.task, this.colIndex);
-        },
-        moveTask(direction) {
-            const toColumn = direction === 'left' ? this.colIndex - 1 : this.colIndex + 1;
-            this.$emit('move-task', { task: this.task, fromColumn: this.colIndex, toColumn });
+        returnTask() {
+            if (!this.returnReason.trim()) {
+                alert('Укажите причину возврата');
+                return;
+            }
+            this.task.returnReason = this.returnReason;
+            this.$emit('return-task', this.task, this.colIndex, this.returnReason);
+            this.returnReason = '';
         }
     },
     template: `
-        <div class="task">
-            <div v-if="!isEditing">
-                <h3>{{ task.title }}</h3>
-                <p>{{ task.description }}</p>
-                <p>Дедлайн: {{ task.deadline }}</p>
-                <p>Создано: {{ task.createdAt }}</p>
-                <p>Последнее изменение: {{ task.lastEdited }}</p>
-                <button @click="toggleEdit">Редактировать</button>
-                <button @click="deleteTask">Удалить</button>
-                <button @click="moveTask('left')" :disabled="colIndex === 0">←</button>
-                <button @click="moveTask('right')" :disabled="colIndex === columnsLength - 1">→</button>
-            </div>
-            <div v-else>
-                <input v-model="editedTask.title" placeholder="Название задачи">
-                <input v-model="editedTask.description" placeholder="Описание задачи">
-                <input v-model="editedTask.deadline" type="date" placeholder="Дедлайн">
-                <button @click="saveEdit">Сохранить</button>
-                <button @click="toggleEdit">Отмена</button>
-            </div>
+    <div class="task" :class="taskStatus">
+        <div>
+            <input v-if="isEditing" v-model="editedTask.title" placeholder="Название">
+            <p v-else>{{ task.title }}</p>
         </div>
+        <div>
+            <textarea v-if="isEditing" v-model="editedTask.description" placeholder="Описание"></textarea>
+            <p v-else>{{ task.description }}</p>
+        </div>
+        <div>
+            <input v-if="isEditing" type="date" v-model="editedTask.deadline">
+            <p v-else>Дэдлайн: {{ task.deadline }}</p>
+        </div>
+        <p>Создано: {{ task.createdAt }}</p>
+        <p>Изменено: {{ task.lastEdited }}</p>
+        <p v-if="task.returnReason">Причина возврата: {{ task.returnReason }}</p>
+        <p v-if="colIndex === columnsLength - 1">
+            {{ taskStatus === 'completed' ? 'Выполнено в срок' : 'Просрочено' }}
+        </p>
+        <button v-if="colIndex < columnsLength - 1" @click="isEditing ? saveEdit() : toggleEdit()">{{ isEditing ? 'Сохранить' : 'Редактировать' }}</button>
+        <button @click="$emit('delete-task', task, colIndex)">Удалить</button>
+        <button v-if="colIndex < columnsLength - 1" @click="$emit('move-task', task, colIndex, colIndex + 1)">Далее</button>
+        <div v-if="colIndex === 2">
+            <textarea v-model="returnReason" placeholder="Причина возврата"></textarea>
+            <button @click="returnTask">Вернуть</button>
+        </div>
+    </div>
     `
 });
 
-// Основное приложение
+Vue.component('task-column', {
+    props: ['column', 'index', 'columnsLength'],
+    methods: {
+        returnTask(task, colIndex, reason) {
+            this.$emit('move-task', task, colIndex, 1);
+            task.returnReason = reason;
+            this.$emit('update-storage');
+        }
+    },
+    template: `
+    <div class="column">
+        <h3>{{ column.title }}</h3>
+        <task-card v-for="task in column.tasks" 
+                   :key="task.createdAt" 
+                   :task="task" 
+                   :colIndex="index" 
+                   :columnsLength="columnsLength"
+                   @delete-task="$emit('delete-task', task, index)"
+                   @move-task="$emit('move-task', task, index, index + 1)"
+                   @return-task="returnTask"
+                   @update-storage="$emit('update-storage')">
+        </task-card>
+    </div>
+    `
+});
+
 new Vue({
     el: '#app',
     data() {
@@ -86,8 +109,7 @@ new Vue({
                 { title: 'Тестирование', tasks: [] },
                 { title: 'Выполненные задачи', tasks: [] }
             ],
-            newTask: { title: '', description: '', deadline: '' },
-            editingTask: null
+            newTask: { title: '', description: '', deadline: '' }
         };
     },
     methods: {
@@ -109,7 +131,7 @@ new Vue({
             this.saveToLocalStorage();
         },
         moveTask(task, fromColumn, toColumn) {
-            if (toColumn >= this.columns.length || toColumn < 0) return;
+            if (toColumn >= this.columns.length) return;
             this.columns[fromColumn].tasks = this.columns[fromColumn].tasks.filter(t => t !== task);
             this.columns[toColumn].tasks.push(task);
             task.lastEdited = new Date().toLocaleString();
@@ -117,26 +139,24 @@ new Vue({
         }
     },
     template: `
-        <div>
-            <div class="task-form">
-                <input v-model="newTask.title" placeholder="Название задачи">
-                <input v-model="newTask.description" placeholder="Описание задачи">
-                <input v-model="newTask.deadline" type="date" placeholder="Дедлайн">
-                <button @click="addTask">Добавить задачу</button>
-            </div>
-
-            <div class="kanban-board">
-                <task-column
-                    v-for="(column, colIndex) in columns"
-                    :key="colIndex"
-                    :column="column"
-                    :index="colIndex"
-                    :columnsLength="columns.length"
-                    @delete-task="deleteTask"
-                    @move-task="moveTask"
-                    @update-storage="saveToLocalStorage"
-                ></task-column>
-            </div>
+    <div>
+        <div class="task-form">
+            <input v-model="newTask.title" placeholder="Название">
+            <input v-model="newTask.description" placeholder="Описание">
+            <input type="date" v-model="newTask.deadline">
+            <button @click="addTask">Добавить</button>
         </div>
+        <div class="board">
+            <task-column v-for="(column, index) in columns" 
+                         :key="index" 
+                         :column="column" 
+                         :index="index" 
+                         :columnsLength="columns.length"
+                         @delete-task="deleteTask" 
+                         @move-task="moveTask"
+                         @update-storage="saveToLocalStorage">
+            </task-column>
+        </div>
+    </div>
     `
 });
